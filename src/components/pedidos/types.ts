@@ -1,6 +1,7 @@
 import type {
   Customer,
   DeliveryType,
+  OrderCategory,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -28,6 +29,7 @@ export interface KanbanOrder {
   notes: string | null;
   customer_id: string | null;
   customer_name: string | null;
+  category: OrderCategory;
 
   channel: Pick<SalesChannel, "id" | "name" | "fee_percentage"> | null;
   customer: Pick<Customer, "id" | "name" | "whatsapp" | "address"> | null;

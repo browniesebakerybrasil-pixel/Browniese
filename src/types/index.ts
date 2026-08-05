@@ -122,6 +122,16 @@ export interface PrepStep {
   description: string;
 }
 
+/**
+ * Item de embalagem de uma ficha técnica.
+ * Ex.: { name: "Caixinha", cost: 1.50 }, { name: "Sacolinha", cost: 0.30 }.
+ * O somatório vai para packaging_cost automaticamente na server action.
+ */
+export interface PackagingItem {
+  name: string;
+  cost: number;
+}
+
 export interface TechnicalSheet {
   id: string;
   organization_id: string;
@@ -137,6 +147,7 @@ export interface TechnicalSheet {
   gas_cost: number;
   energy_cost: number;
   packaging_cost: number;
+  packaging_items: PackagingItem[]; // migration 004
   labor_cost: number;
   other_fixed_costs: number;
 
@@ -199,6 +210,8 @@ export type PaymentMethod =
 
 export type DeliveryType = "retirada" | "entrega";
 
+export type OrderCategory = "comum" | "festival" | "encomenda";
+
 export interface Order {
   id: string;
   organization_id: string;
@@ -221,6 +234,9 @@ export interface Order {
   payment_method: PaymentMethod;
   amount_paid: number;
   order_number: number;
+
+  // migration 003
+  category: OrderCategory;
 }
 
 export interface Customer {

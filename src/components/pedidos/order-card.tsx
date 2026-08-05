@@ -2,6 +2,8 @@
 
 import { cn, formatCurrency } from "@/lib/utils";
 import {
+  ORDER_CATEGORY_BADGE,
+  ORDER_CATEGORY_LABEL,
   PAYMENT_BADGE,
   PAYMENT_STATUS_LABEL,
 } from "./order-constants";
@@ -79,6 +81,19 @@ export function OrderCard({
               : "Pago"}
         </span>
       </div>
+
+      {order.category && order.category !== "comum" ? (
+        <div className="mt-1.5">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+              ORDER_CATEGORY_BADGE[order.category],
+            )}
+          >
+            {ORDER_CATEGORY_LABEL[order.category]}
+          </span>
+        </div>
+      ) : null}
 
       <ul className="mt-2 space-y-0.5 text-xs text-[var(--color-slate)]">
         {order.items.slice(0, 3).map((it) => (

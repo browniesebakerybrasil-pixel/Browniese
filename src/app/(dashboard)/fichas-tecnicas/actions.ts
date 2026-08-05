@@ -38,9 +38,10 @@ export async function createTechnicalSheet(
     }
   }
 
+  const payload = withPackagingSum(parsed.data);
   const { data, error } = await supabase
     .from("technical_sheets")
-    .insert({ organization_id: organization.id, ...parsed.data })
+    .insert({ organization_id: organization.id, ...payload })
     .select("id")
     .single();
   if (error) {
@@ -61,9 +62,10 @@ export async function updateTechnicalSheet(
   if (!parsed.ok || !parsed.data) return parsed;
 
   const supabase = createAdminClient();
+  const payload = withPackagingSum(parsed.data);
   const { error } = await supabase
     .from("technical_sheets")
-    .update(parsed.data)
+    .update(payload)
     .eq("id", id);
   if (error) {
     console.error("[updateTechnicalSheet]", error);
@@ -75,6 +77,26 @@ export async function updateTechnicalSheet(
   revalidatePath("/fichas-tecnicas");
   revalidatePath(`/fichas-tecnicas/${id}`);
   return { ok: true };
+}
+
+/**
+ * Se a ficha tem lista de embalagens (packaging_items), o packaging_cost total
+ * é a soma dos itens — sobrescreve o que veio no form. Se a lista está vazia,
+ * mantém o packaging_cost avulso que o usuário digitou (legado).
+ */
+function withPackagingSum<
+  T extends {
+    packaging_items?: Array<{ name: string; cost: number }>;
+    packaging_cost?: number;
+  },
+>(data: T): T {
+  const items = data.packaging_items ?? [];
+  if (items.length === 0) return data;
+  const sum = items.reduce(
+    (acc, it) => acc + (Number(it.cost) || 0),
+    0,
+  );
+  return { ...data, packaging_cost: Math.round(sum * 100) / 100 };
 }
 
 export async function deleteTechnicalSheet(id: string) {

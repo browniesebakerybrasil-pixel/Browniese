@@ -1,4 +1,9 @@
-import type { OrderStatus, PaymentStatus, PaymentMethod } from "@/types";
+import type {
+  OrderCategory,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@/types";
 
 /**
  * Cor de cada coluna do Kanban. Usada na barra superior, no título e na
@@ -57,3 +62,32 @@ export const PAYMENT_BADGE: Record<PaymentStatus, string> = {
   sinal_pago: "bg-amber-100 text-amber-900 border-amber-300",
   pago: "bg-emerald-100 text-emerald-800 border-emerald-300",
 };
+
+// ---------------------------------------------------------------------------
+// Categoria do pedido (migration 003)
+// ---------------------------------------------------------------------------
+
+export const ORDER_CATEGORY_LABEL: Record<OrderCategory, string> = {
+  comum: "Pedido comum",
+  festival: "Festival",
+  encomenda: "Encomenda",
+};
+
+/**
+ * Cores por categoria. Usadas no badge do card e no seletor.
+ * Festival ganha destaque forte (roxo) para se destacar do fluxo normal.
+ */
+export const ORDER_CATEGORY_BADGE: Record<OrderCategory, string> = {
+  comum: "bg-slate-100 text-slate-700 border-slate-300",
+  festival: "bg-purple-100 text-purple-800 border-purple-300",
+  encomenda: "bg-blue-100 text-blue-800 border-blue-300",
+};
+
+export const ORDER_CATEGORY_OPTIONS: Array<{
+  value: OrderCategory;
+  label: string;
+}> = [
+  { value: "comum", label: "Pedido comum" },
+  { value: "festival", label: "Festival" },
+  { value: "encomenda", label: "Encomenda" },
+];

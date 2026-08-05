@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   deliveryTypeEnum,
   numberFromInput,
+  orderCategoryEnum,
   orderStatusEnum,
   paymentMethodEnum,
   paymentStatusEnum,
@@ -16,6 +17,7 @@ import {
 import { calcOrderTotals } from "@/lib/utils";
 import type {
   DeliveryType,
+  OrderCategory,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -45,6 +47,7 @@ const orderFormSchema = z.object({
   payment_method: paymentMethodEnum.default("pix"),
   amount_paid: numberFromInput.optional(),
   order_status: orderStatusEnum.default("novo"),
+  category: orderCategoryEnum.default("comum"),
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 
@@ -78,6 +81,7 @@ export async function createOrder(
     payment_method: formData.get("payment_method") ?? "pix",
     amount_paid: formData.get("amount_paid") ?? "0",
     order_status: formData.get("order_status") ?? "novo",
+    category: formData.get("category") ?? "comum",
     notes: formData.get("notes") ?? "",
   });
   if (!baseParse.success) {
@@ -174,6 +178,7 @@ export async function createOrder(
       payment_status: paymentStatus,
       payment_method: baseParse.data.payment_method as PaymentMethod,
       amount_paid: amountPaid,
+      category: baseParse.data.category as OrderCategory,
       notes: baseParse.data.notes || null,
       total_amount: round2(grossAmount),
       net_amount: round2(netAmount),
@@ -267,6 +272,7 @@ const orderEditSchema = z.object({
   delivery_date: z.string().optional().or(z.literal("")),
   delivery_type: deliveryTypeEnum,
   delivery_address: z.string().max(300).optional().or(z.literal("")),
+  category: orderCategoryEnum,
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 
@@ -284,6 +290,7 @@ export async function updateOrderFromModal(
     delivery_date: formData.get("delivery_date") ?? "",
     delivery_type: formData.get("delivery_type"),
     delivery_address: formData.get("delivery_address") ?? "",
+    category: formData.get("category") ?? "comum",
     notes: formData.get("notes") ?? "",
   });
   if (!parsed.success) {
@@ -317,6 +324,7 @@ export async function updateOrderFromModal(
         parsed.data.delivery_type === "entrega"
           ? parsed.data.delivery_address || null
           : null,
+      category: parsed.data.category,
       notes: parsed.data.notes || null,
     })
     .eq("id", id);

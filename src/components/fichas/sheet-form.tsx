@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   FieldError,
@@ -13,7 +13,44 @@ import {
   updateTechnicalSheet,
 } from "@/app/(dashboard)/fichas-tecnicas/actions";
 import { emptyActionState, type ActionState } from "@/lib/validation";
-import type { TechnicalSheet } from "@/types";
+import { formatCurrency } from "@/lib/utils";
+import type { PackagingItem, TechnicalSheet } from "@/types";
+
+interface PackagingRow {
+  name: string;
+  cost: string; // string pra permitir input livre "1,50"
+}
+
+/**
+ * Estado inicial da lista de embalagens.
+ *  - Se a ficha ja tem packaging_items, usa eles.
+ *  - Se nao tem itens mas tem packaging_cost legado > 0, cria 1 linha
+ *    "Embalagem" com o valor.
+ *  - Caso contrario, uma linha em branco.
+ */
+function initialPackagingRows(sheet?: TechnicalSheet): PackagingRow[] {
+  const items = sheet?.packaging_items;
+  if (items && items.length > 0) {
+    return items.map((it) => ({
+      name: it.name,
+      cost: String(Number(it.cost)).replace(".", ","),
+    }));
+  }
+  const legacy = Number(sheet?.packaging_cost ?? 0);
+  if (legacy > 0) {
+    return [
+      { name: "Embalagem", cost: String(legacy).replace(".", ",") },
+    ];
+  }
+  return [{ name: "", cost: "" }];
+}
+
+function parseCost(v: string): number {
+  if (!v) return 0;
+  const cleaned = v.trim().replace(/\./g, "").replace(",", ".");
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
 
 export function SheetForm({
   mode,
@@ -30,6 +67,30 @@ export function SheetForm({
     action,
     emptyActionState(),
   );
+
+  const [rows, setRows] = useState<PackagingRow[]>(() =>
+    initialPackagingRows(sheet),
+  );
+
+  const packagingTotal = useMemo(
+    () => rows.reduce((acc, r) => acc + parseCost(r.cost), 0),
+    [rows],
+  );
+
+  // Serializa a lista pra um campo hidden que o server action le como JSON.
+  // Filtra linhas com nome vazio (usuario ainda esta digitando).
+  const packagingJson = useMemo<string>(() => {
+    const cleaned: PackagingItem[] = rows
+      .map((r) => ({ name: r.name.trim(), cost: parseCost(r.cost) }))
+      .filter((r) => r.name.length > 0);
+    return JSON.stringify(cleaned);
+  }, [rows]);
+
+  function updateRow(idx: number, key: keyof PackagingRow, value: string) {
+    setRows((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, [key]: value } : r)),
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -124,7 +185,7 @@ export function SheetForm({
         <legend className="px-2 text-xs uppercase tracking-widest text-[var(--color-slate)]">
           Custos fixos rateados (por ficha)
         </legend>
-        <div className="mt-2 grid gap-3 md:grid-cols-3">
+        <div className="mt-2 grid gap-3 md:grid-cols-2">
           <div>
             <Label htmlFor="gas_cost">Gás</Label>
             <Input
@@ -141,15 +202,6 @@ export function SheetForm({
               name="energy_cost"
               inputMode="decimal"
               defaultValue={String(sheet?.energy_cost ?? 0)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="packaging_cost">Embalagem</Label>
-            <Input
-              id="packaging_cost"
-              name="packaging_cost"
-              inputMode="decimal"
-              defaultValue={String(sheet?.packaging_cost ?? 0)}
             />
           </div>
           <div>
@@ -170,6 +222,86 @@ export function SheetForm({
               defaultValue={String(sheet?.other_fixed_costs ?? 0)}
             />
           </div>
+        </div>
+
+        {/* ------------------------------------------------------------------
+             Embalagens — lista repetivel. Cada linha tem nome + custo.
+             O total substitui o campo packaging_cost automaticamente na
+             server action. Ideal pra brownie com caixinha + sacolinha, ou
+             pizza com caixa + guardanapo etc.
+        ------------------------------------------------------------------ */}
+        <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-[var(--color-navy)]">
+              Embalagens
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setRows((prev) => [...prev, { name: "", cost: "" }])
+              }
+            >
+              + Adicionar
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-[var(--color-slate)]">
+            Ex.: Caixinha, Sacolinha, Guardanapo. O total soma sozinho.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {rows.map((row, idx) => (
+              <div
+                key={idx}
+                className="grid gap-2 rounded-md border border-[var(--border)] bg-white p-2 md:grid-cols-[1fr_140px_auto]"
+              >
+                <Input
+                  placeholder="Nome (ex.: Caixinha)"
+                  value={row.name}
+                  onChange={(e) => updateRow(idx, "name", e.target.value)}
+                />
+                <Input
+                  placeholder="R$ 0,00"
+                  inputMode="decimal"
+                  value={row.cost}
+                  onChange={(e) => updateRow(idx, "cost", e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={rows.length === 1}
+                  onClick={() =>
+                    setRows((prev) => prev.filter((_, i) => i !== idx))
+                  }
+                >
+                  Remover
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between rounded-md bg-[var(--color-cream-50)] px-3 py-2">
+            <span className="text-xs uppercase tracking-widest text-[var(--color-slate)]">
+              Total embalagem
+            </span>
+            <span className="font-serif text-lg text-[var(--color-navy)]">
+              {formatCurrency(packagingTotal)}
+            </span>
+          </div>
+
+          {/* Hidden inputs: JSON de itens + total (para o schema Zod) */}
+          <input
+            type="hidden"
+            name="packaging_items"
+            value={packagingJson}
+          />
+          <input
+            type="hidden"
+            name="packaging_cost"
+            value={String(packagingTotal)}
+          />
         </div>
       </fieldset>
 

@@ -14,9 +14,11 @@ import {
   emptyActionState,
   type ActionState as ActionStateT,
 } from "@/lib/validation";
+import { ORDER_CATEGORY_OPTIONS } from "./order-constants";
 import type {
   Customer,
   DeliveryType,
+  OrderCategory,
   PaymentMethod,
   PaymentStatus,
   SalesChannel,
@@ -75,6 +77,7 @@ export function OrderForm({
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("retirada");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("nao_pago");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [category, setCategory] = useState<OrderCategory>("comum");
 
   const [state, formAction, pending] = useActionState<
     ActionStateT,
@@ -162,7 +165,24 @@ export function OrderForm({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
+        <div>
+          <Label htmlFor="category" hint="marca festival/encomenda">
+            Categoria
+          </Label>
+          <Select
+            id="category"
+            name="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as OrderCategory)}
+          >
+            {ORDER_CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div>
           <Label htmlFor="sales_channel_id">Canal</Label>
           <Select

@@ -64,6 +64,49 @@ export const supplyIngredientSchema = z.object({
   unit: unitSchema,
 });
 
+/**
+ * Preprocessa `packaging_items` que chega como JSON string do form.
+ * Formato: [{"name":"Caixinha","cost":1.50}, ...].
+ * Filtra itens vazios/invalidos silenciosamente.
+ */
+const packagingItemsSchema = z.preprocess(
+  (v) => {
+    if (typeof v !== "string" || !v.trim()) return [];
+    try {
+      const parsed = JSON.parse(v);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((it: unknown) => {
+          const obj = (it ?? {}) as Record<string, unknown>;
+          const name = String(obj.name ?? "").trim();
+          const rawCost = obj.cost;
+          const cost =
+            typeof rawCost === "number"
+              ? rawCost
+              : Number(
+                  String(rawCost ?? "0")
+                    .trim()
+                    .replace(/\./g, "")
+                    .replace(",", "."),
+                );
+          return {
+            name,
+            cost: Number.isFinite(cost) && cost >= 0 ? cost : 0,
+          };
+        })
+        .filter((it) => it.name.length > 0);
+    } catch {
+      return [];
+    }
+  },
+  z.array(
+    z.object({
+      name: z.string().min(1).max(60),
+      cost: z.number().nonnegative(),
+    }),
+  ),
+);
+
 export const technicalSheetSchema = z.object({
   name: z.string().min(1).max(120),
   category: z.string().max(80).optional(),
@@ -75,6 +118,7 @@ export const technicalSheetSchema = z.object({
   gas_cost: nonNegativeNumber.default(0),
   energy_cost: nonNegativeNumber.default(0),
   packaging_cost: nonNegativeNumber.default(0),
+  packaging_items: packagingItemsSchema.optional().default([]),
   labor_cost: nonNegativeNumber.default(0),
   other_fixed_costs: nonNegativeNumber.default(0),
   notes: z.string().max(500).optional(),
@@ -169,6 +213,8 @@ export const paymentMethodEnum = z.enum([
 ]);
 
 export const deliveryTypeEnum = z.enum(["retirada", "entrega"]);
+
+export const orderCategoryEnum = z.enum(["comum", "festival", "encomenda"]);
 
 export const fixedCostSchema = z.object({
   name: z.string().min(1).max(120),

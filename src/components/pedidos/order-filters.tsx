@@ -1,8 +1,8 @@
 "use client";
 
 import { Input, Select } from "@/components/ui/input";
-import type { PaymentStatus } from "@/types";
-import type { SalesChannel } from "@/types";
+import { ORDER_CATEGORY_OPTIONS } from "./order-constants";
+import type { OrderCategory, PaymentStatus, SalesChannel } from "@/types";
 
 export type DateFilter = "hoje" | "semana" | "mes" | "personalizado" | "todos";
 
@@ -12,6 +12,7 @@ export interface FiltersState {
   paymentStatus: "todos" | PaymentStatus;
   channelId: string;
   customerSearch: string;
+  category: "todos" | OrderCategory;
 }
 
 export const defaultFilters: FiltersState = {
@@ -20,6 +21,7 @@ export const defaultFilters: FiltersState = {
   paymentStatus: "todos",
   channelId: "",
   customerSearch: "",
+  category: "todos",
 };
 
 export function OrderFilters({
@@ -106,6 +108,26 @@ export function OrderFilters({
 
       <div>
         <label className="text-xs uppercase tracking-widest text-[var(--color-slate)]">
+          Categoria
+        </label>
+        <Select
+          value={value.category}
+          onChange={(e) =>
+            set("category", e.target.value as FiltersState["category"])
+          }
+          className="mt-1"
+        >
+          <option value="todos">Todas</option>
+          {ORDER_CATEGORY_OPTIONS.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div>
+        <label className="text-xs uppercase tracking-widest text-[var(--color-slate)]">
           Cliente
         </label>
         <Input
@@ -130,6 +152,7 @@ export function applyFilters<
     customer_name: string | null;
     customer?: { name: string } | null;
     channel?: { id: string } | null;
+    category?: OrderCategory;
   },
 >(orders: T[], filters: FiltersState): T[] {
   const today = new Date();
@@ -177,6 +200,12 @@ export function applyFilters<
 
     // Canal
     if (filters.channelId && o.channel?.id !== filters.channelId) return false;
+
+    // Categoria (festival, encomenda, comum)
+    if (filters.category !== "todos") {
+      const cat = (o.category ?? "comum") as OrderCategory;
+      if (cat !== filters.category) return false;
+    }
 
     // Cliente
     if (filters.customerSearch.trim()) {

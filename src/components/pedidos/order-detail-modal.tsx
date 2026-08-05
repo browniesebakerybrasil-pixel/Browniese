@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { updateOrderFromModal } from "@/app/(dashboard)/pedidos/actions";
 import { emptyActionState } from "@/lib/validation";
 import {
+  ORDER_CATEGORY_OPTIONS,
   ORDER_COLUMNS,
   PAYMENT_METHOD_LABEL,
   PAYMENT_STATUS_LABEL,
@@ -285,6 +286,23 @@ function ModalBody({
             defaultValue={order.delivery_address ?? ""}
             placeholder="Rua, número, bairro"
           />
+        </div>
+
+        <div>
+          <Label htmlFor="category" hint="comum, festival, encomenda">
+            Categoria
+          </Label>
+          <Select
+            id="category"
+            name="category"
+            defaultValue={order.category ?? "comum"}
+          >
+            {ORDER_CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
         </div>
 
         <div>
