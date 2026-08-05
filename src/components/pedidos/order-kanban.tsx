@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
@@ -156,21 +155,6 @@ export function OrderKanban({ orders, channels }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Botão sticky "+ Novo pedido" — sempre acessível, mesmo quando o
-          usuário rolou pra baixo pra ver as colunas. Complementa o botão do
-          header. Em desktop fica alinhado a direita; em mobile, largura total. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-[var(--color-slate)]">
-          {orders.length} pedido(s) nos últimos 60 dias
-        </p>
-        <Link
-          href="/pedidos/novo"
-          className="inline-flex w-full items-center justify-center rounded-md bg-[var(--color-brown)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[var(--color-brown-600)] active:scale-[0.98] sm:w-auto"
-        >
-          + Novo pedido
-        </Link>
-      </div>
-
       <OrderFilters
         value={filters}
         onChange={setFilters}

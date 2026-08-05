@@ -38,26 +38,20 @@ export default async function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="font-serif text-2xl text-[var(--color-navy)] sm:text-3xl">
-            Pedidos
-          </h2>
-          <p className="mt-1 text-sm text-[var(--color-slate)]">
-            Kanban completo. Arraste o card entre colunas para mudar o status,
-            ou toque para abrir os detalhes.
-          </p>
-        </div>
+      <header className="min-w-0 space-y-3">
+        <h2 className="font-serif text-2xl text-[var(--color-navy)] sm:text-3xl">
+          Pedidos
+        </h2>
+        <p className="text-sm text-[var(--color-slate)]">
+          Kanban completo. Arraste o card entre colunas para mudar o status,
+          ou toque para abrir os detalhes.
+        </p>
         <Link
           href="/pedidos/novo"
-          className="w-full sm:w-auto"
+          className="inline-block"
           aria-label="Novo pedido"
         >
-          <Button
-            variant="primary"
-            size="lg"
-            className="w-full whitespace-nowrap sm:w-auto"
-          >
+          <Button variant="primary" size="lg" className="whitespace-nowrap">
             + Novo pedido
           </Button>
         </Link>
