@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Stoque — design tokens
+   ============================================================================
+   Paleta institucional:
+     navy   #0C3C59  cor principal (sidebar, headings)
+     brown  #AD7039  destaques / botões primários
+     gold   #D9A441  ações especiais / chips
+     cream  #F2E7D5  fundos claros
+     slate  #4A6572  texto secundário
+
+   Fontes:
+     DM Sans            -> corpo
+     DM Serif Display   -> títulos
+   ============================================================================ */
+
+:root {
+  --color-navy: #0c3c59;
+  --color-navy-600: #0a3550;
+  --color-navy-700: #082a40;
+  --color-brown: #ad7039;
+  --color-brown-600: #97612f;
+  --color-gold: #d9a441;
+  --color-cream: #f2e7d5;
+  --color-cream-50: #faf3e6;
+  --color-slate: #4a6572;
+  --color-slate-300: #94a3af;
+
+  --background: #fbf7ef;
+  --foreground: #0c3c59;
+  --muted: #4a6572;
+  --border: #e6dcc7;
+}
+
+@theme inline {
+  /* Cores expostas como utilitários do Tailwind: bg-navy, text-brown, etc. */
+  --color-navy: var(--color-navy);
+  --color-navy-600: var(--color-navy-600);
+  --color-navy-700: var(--color-navy-700);
+  --color-brown: var(--color-brown);
+  --color-brown-600: var(--color-brown-600);
+  --color-gold: var(--color-gold);
+  --color-cream: var(--color-cream);
+  --color-cream-50: var(--color-cream-50);
+  --color-slate: var(--color-slate);
+  --color-slate-300: var(--color-slate-300);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-dm-serif), Georgia, "Times New Roman", serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.font-serif {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================================
+   Animações da landing
+   ============================================================================
+   - .reveal-mask     -> "máscara" que sobe revelando o texto (clip + slide)
+   - .fade-in-up      -> opacidade + translate y, escalonável com --delay
+   - .gradient-text   -> gradiente animado no fill do texto (background-clip)
+   ============================================================================ */
+
+@keyframes stoque-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stoque-reveal-mask {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes stoque-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes stoque-pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.fade-in-up {
+  opacity: 0;
+  animation: stoque-fade-in-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.reveal-mask {
+  display: inline-block;
+  animation: stoque-reveal-mask 1.1s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.gradient-text {
+  /* Fallback: cor sólida navy. Se o gradient-clip não rodar (browser antigo,
+     conflito com clip-path da máscara, etc.) o texto continua legível. */
+  color: var(--color-navy);
+  background-image: linear-gradient(
+    100deg,
+    var(--color-navy) 0%,
+    var(--color-brown) 35%,
+    var(--color-gold) 55%,
+    var(--color-brown) 75%,
+    var(--color-navy) 100%
+  );
+  background-size: 200% auto;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: stoque-gradient-shift 8s ease-in-out infinite;
+}
+
+/* Se o navegador não suportar background-clip: text, força o fallback. */
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .gradient-text {
+    -webkit-text-fill-color: var(--color-navy);
+    background-image: none;
+  }
+}
+
+.pulse-soft {
+  animation: stoque-pulse-soft 2s ease-in-out infinite;
+}
+
+/* Respeita preferência do sistema por movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-up,
+  .reveal-mask,
+  .gradient-text,
+  .pulse-soft {
+    animation: none !important;
+    opacity: 1 !important;
+    clip-path: none !important;
+  }
+}
