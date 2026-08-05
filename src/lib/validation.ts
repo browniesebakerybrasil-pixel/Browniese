@@ -43,12 +43,39 @@ export const percent0to99 = numberFromInput.refine(
 // Schemas de cada modulo
 // ---------------------------------------------------------------------------
 
+/** Numero opcional que aceita string vazia -> null. Usado nos campos de
+ *  estoque (current_stock, low_stock_threshold) que sao opcionais. */
+const optionalNonNegative = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
+  .transform((v) => {
+    if (v == null) return null;
+    if (typeof v === "number") return v;
+    const trimmed = v.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  })
+  .refine((v) => v === null || v >= 0, {
+    message: "Não pode ser negativo.",
+  });
+
 export const rawMaterialSchema = z.object({
   name: z.string().min(1, "Informe o nome.").max(120),
   quantity: positiveNumber,
   unit: unitSchema,
   total_cost: nonNegativeNumber,
   waste_percentage: percent0to100.default(0),
+  current_stock: optionalNonNegative.optional(),
+  low_stock_threshold: optionalNonNegative.optional(),
+});
+
+// migration 005 — eventos
+export const eventSchema = z.object({
+  name: z.string().min(1, "Informe o nome.").max(120),
+  event_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida."),
+  notes: z.string().max(500).optional(),
 });
 
 export const supplySchema = z.object({

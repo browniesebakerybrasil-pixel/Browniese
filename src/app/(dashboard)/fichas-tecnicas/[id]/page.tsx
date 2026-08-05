@@ -9,7 +9,12 @@ import { SheetIngredientForm } from "@/components/fichas/sheet-ingredient-form";
 import { RemoveSheetIngredientButton } from "@/components/fichas/remove-sheet-ingredient-button";
 import { DeleteSheetButton } from "@/components/fichas/delete-sheet-button";
 import { formatCurrency, formatPercent } from "@/lib/utils";
-import type { RawMaterial, Supply, TechnicalSheet } from "@/types";
+import type {
+  RawMaterial,
+  SheetHistoryEntry,
+  Supply,
+  TechnicalSheet,
+} from "@/types";
 
 export const metadata = { title: "Editar ficha técnica" };
 
@@ -35,6 +40,7 @@ export default async function SheetDetailPage({
     { data: ingredients },
     { data: rawMaterials },
     { data: supplies },
+    { data: history },
   ] = await Promise.all([
     supabase
       .from("sheet_ingredients")
@@ -52,7 +58,15 @@ export default async function SheetDetailPage({
       .select("*")
       .eq("organization_id", organization.id)
       .order("name"),
+    supabase
+      .from("sheet_history")
+      .select("*")
+      .eq("sheet_id", id)
+      .order("changed_at", { ascending: false })
+      .limit(10),
   ]);
+
+  const historyList = (history ?? []) as SheetHistoryEntry[];
 
   return (
     <div className="space-y-6">
@@ -195,8 +209,73 @@ export default async function SheetDetailPage({
           </div>
         </Card>
       </div>
+
+      {/* Histórico — só aparece se tiver eventos registrados */}
+      {historyList.length > 0 ? (
+        <Card>
+          <h3 className="font-serif text-lg text-[var(--color-navy)]">
+            Histórico
+          </h3>
+          <p className="mt-1 text-xs text-[var(--color-slate)]">
+            Últimas alterações desta ficha (preço, margem, receita, embalagem).
+          </p>
+          <ul className="mt-4 divide-y divide-[var(--border)]">
+            {historyList.map((h) => (
+              <li key={h.id} className="py-3 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs uppercase tracking-widest text-[var(--color-slate)]">
+                    {HISTORY_LABEL[h.event_type] ?? h.event_type}
+                  </span>
+                  <span className="font-mono text-xs text-[var(--color-slate)]">
+                    {formatHistoryDate(h.changed_at)}
+                  </span>
+                </div>
+                <p className="mt-1 text-[var(--color-navy)]">
+                  {historyLine(h)}
+                </p>
+                {h.description ? (
+                  <p className="mt-1 text-xs text-[var(--color-slate)]">
+                    {h.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
     </div>
   );
+}
+
+const HISTORY_LABEL: Record<string, string> = {
+  price: "Preço",
+  margin: "Margem",
+  packaging: "Embalagem",
+  ingredient_added: "Ingrediente adicionado",
+  ingredient_removed: "Ingrediente removido",
+  cmv: "CMV",
+};
+
+function historyLine(h: SheetHistoryEntry): string {
+  if (h.event_type === "ingredient_added") {
+    return `+ ${h.to_value ?? ""}`;
+  }
+  if (h.event_type === "ingredient_removed") {
+    return `− ${h.from_value ?? ""}`;
+  }
+  if (h.from_value && h.to_value) {
+    return `${h.from_value} → ${h.to_value}`;
+  }
+  return h.to_value ?? h.from_value ?? "—";
+}
+
+function formatHistoryDate(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${hh}:${min}`;
 }
 
 function Kpi({

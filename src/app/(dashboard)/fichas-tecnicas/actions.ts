@@ -57,11 +57,19 @@ export async function updateTechnicalSheet(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireOrganization();
+  const { organization } = await requireOrganization();
   const parsed = parseFormData(technicalSheetSchema, formData);
   if (!parsed.ok || !parsed.data) return parsed;
 
   const supabase = createAdminClient();
+
+  // Busca o estado anterior pra montar o diff do histórico
+  const { data: before } = await supabase
+    .from("technical_sheets")
+    .select("sale_price, desired_margin, packaging_cost, packaging_items")
+    .eq("id", id)
+    .maybeSingle();
+
   const payload = withPackagingSum(parsed.data);
   const { error } = await supabase
     .from("technical_sheets")
@@ -73,6 +81,9 @@ export async function updateTechnicalSheet(
   }
 
   await recalculateSheet(supabase, id);
+
+  // Registra mudancas relevantes no historico (best-effort, nao bloqueia)
+  await logSheetDiff(supabase, organization.id, id, before, payload);
 
   revalidatePath("/fichas-tecnicas");
   revalidatePath(`/fichas-tecnicas/${id}`);
@@ -112,7 +123,7 @@ export async function addSheetIngredient(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireOrganization();
+  const { organization } = await requireOrganization();
   const parsed = parseFormData(sheetIngredientSchema, formData);
   if (!parsed.ok || !parsed.data) return parsed;
 
@@ -144,6 +155,14 @@ export async function addSheetIngredient(
 
   await recalculateSheet(supabase, sheetId);
 
+  // Registra no historico
+  const label = await ingredientLabel(supabase, parsed.data);
+  await logSheetHistory(supabase, organization.id, sheetId, {
+    event_type: "ingredient_added",
+    to_value: `${parsed.data.quantity} ${parsed.data.unit} de ${label}`,
+    description: null,
+  });
+
   revalidatePath(`/fichas-tecnicas/${sheetId}`);
   return { ok: true };
 }
@@ -152,9 +171,171 @@ export async function removeSheetIngredient(
   sheetId: string,
   ingredientId: string,
 ) {
-  await requireOrganization();
+  const { organization } = await requireOrganization();
   const supabase = createAdminClient();
+
+  // Pega o nome antes de deletar
+  const { data: prev } = await supabase
+    .from("sheet_ingredients")
+    .select(
+      "quantity, unit, raw_material:raw_materials(name), supply:supplies(name)",
+    )
+    .eq("id", ingredientId)
+    .maybeSingle();
+
   await supabase.from("sheet_ingredients").delete().eq("id", ingredientId);
   await recalculateSheet(supabase, sheetId);
+
+  if (prev) {
+    const p = prev as unknown as {
+      quantity: number;
+      unit: string;
+      raw_material: { name: string } | null;
+      supply: { name: string } | null;
+    };
+    const label = p.raw_material?.name ?? p.supply?.name ?? "ingrediente";
+    await logSheetHistory(supabase, organization.id, sheetId, {
+      event_type: "ingredient_removed",
+      from_value: `${p.quantity} ${p.unit} de ${label}`,
+      description: null,
+    });
+  }
   revalidatePath(`/fichas-tecnicas/${sheetId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Histórico — helpers (migration 005)
+// ---------------------------------------------------------------------------
+
+type SupabaseCli = ReturnType<typeof createAdminClient>;
+
+/**
+ * Log leve. Nunca bloqueia a operação principal (best-effort).
+ * event_type é obrigatório; from/to/description opcionais.
+ */
+async function logSheetHistory(
+  supabase: SupabaseCli,
+  organizationId: string,
+  sheetId: string,
+  entry: {
+    event_type:
+      | "price"
+      | "margin"
+      | "packaging"
+      | "ingredient_added"
+      | "ingredient_removed"
+      | "cmv";
+    from_value?: string | null;
+    to_value?: string | null;
+    description?: string | null;
+  },
+) {
+  try {
+    await supabase.from("sheet_history").insert({
+      organization_id: organizationId,
+      sheet_id: sheetId,
+      event_type: entry.event_type,
+      from_value: entry.from_value ?? null,
+      to_value: entry.to_value ?? null,
+      description: entry.description ?? null,
+    });
+  } catch (e) {
+    console.error("[logSheetHistory]", e);
+  }
+}
+
+/**
+ * Compara o estado anterior com o novo e loga o que mudou. Só campos
+ * relevantes pro usuário: preço, margem e embalagem.
+ */
+async function logSheetDiff(
+  supabase: SupabaseCli,
+  organizationId: string,
+  sheetId: string,
+  before:
+    | {
+        sale_price?: number;
+        desired_margin?: number;
+        packaging_cost?: number;
+        packaging_items?: Array<{ name: string; cost: number }>;
+      }
+    | null,
+  after: {
+    sale_price?: number;
+    desired_margin?: number;
+    packaging_cost?: number;
+    packaging_items?: Array<{ name: string; cost: number }>;
+  },
+) {
+  if (!before) return;
+
+  const oldPrice = Number(before.sale_price ?? 0);
+  const newPrice = Number(after.sale_price ?? 0);
+  if (Math.abs(oldPrice - newPrice) > 0.001) {
+    await logSheetHistory(supabase, organizationId, sheetId, {
+      event_type: "price",
+      from_value: fmtBRL(oldPrice),
+      to_value: fmtBRL(newPrice),
+    });
+  }
+
+  const oldMargin = Number(before.desired_margin ?? 0);
+  const newMargin = Number(after.desired_margin ?? 0);
+  if (Math.abs(oldMargin - newMargin) > 0.001) {
+    await logSheetHistory(supabase, organizationId, sheetId, {
+      event_type: "margin",
+      from_value: `${oldMargin}%`,
+      to_value: `${newMargin}%`,
+    });
+  }
+
+  const oldPkg = Number(before.packaging_cost ?? 0);
+  const newPkg = Number(after.packaging_cost ?? 0);
+  if (Math.abs(oldPkg - newPkg) > 0.001) {
+    const newItems = after.packaging_items ?? [];
+    const description =
+      newItems.length > 0
+        ? newItems.map((i) => `${i.name} ${fmtBRL(i.cost)}`).join(" · ")
+        : null;
+    await logSheetHistory(supabase, organizationId, sheetId, {
+      event_type: "packaging",
+      from_value: fmtBRL(oldPkg),
+      to_value: fmtBRL(newPkg),
+      description,
+    });
+  }
+}
+
+async function ingredientLabel(
+  supabase: SupabaseCli,
+  data: {
+    ingredient_type: "raw_material" | "supply";
+    raw_material_id?: string | null;
+    supply_id?: string | null;
+  },
+): Promise<string> {
+  if (data.ingredient_type === "raw_material" && data.raw_material_id) {
+    const { data: r } = await supabase
+      .from("raw_materials")
+      .select("name")
+      .eq("id", data.raw_material_id)
+      .maybeSingle();
+    return (r as { name?: string } | null)?.name ?? "matéria prima";
+  }
+  if (data.ingredient_type === "supply" && data.supply_id) {
+    const { data: s } = await supabase
+      .from("supplies")
+      .select("name")
+      .eq("id", data.supply_id)
+      .maybeSingle();
+    return (s as { name?: string } | null)?.name ?? "insumo";
+  }
+  return "ingrediente";
+}
+
+function fmtBRL(n: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(n);
 }

@@ -73,6 +73,9 @@ export interface RawMaterial {
   waste_percentage: number;
   /** Coluna GENERATED — calculada pelo Postgres. */
   readonly effective_cost_per_unit: number;
+  // migration 005 — estoque opcional
+  current_stock: number | null;
+  low_stock_threshold: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -270,6 +273,47 @@ export interface OrderWithItems extends Order {
   items: OrderItem[];
   channel: SalesChannel | null;
   customer: Customer | null;
+}
+
+// ---------------------------------------------------------------------------
+// Custos fixos mensais (Master)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Eventos programados (migration 005) — festivais, feiras, ocasiões
+// ---------------------------------------------------------------------------
+
+export interface EventItem {
+  id: string;
+  organization_id: string;
+  name: string;
+  event_date: string; // YYYY-MM-DD
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Histórico de ficha técnica (migration 005) — auditoria leve
+// ---------------------------------------------------------------------------
+
+export type SheetHistoryEventType =
+  | "price"
+  | "margin"
+  | "packaging"
+  | "ingredient_added"
+  | "ingredient_removed"
+  | "cmv";
+
+export interface SheetHistoryEntry {
+  id: string;
+  organization_id: string;
+  sheet_id: string;
+  event_type: SheetHistoryEventType;
+  from_value: string | null;
+  to_value: string | null;
+  description: string | null;
+  changed_at: string;
 }
 
 // ---------------------------------------------------------------------------

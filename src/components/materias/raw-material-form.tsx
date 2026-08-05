@@ -175,6 +175,53 @@ export function RawMaterialForm({ mode, material }: Props) {
         </div>
       ) : null}
 
+      {/* Estoque opcional (migration 005). Se preencher os dois, o dashboard
+          mostra um alerta quando current_stock <= low_stock_threshold. Quem
+          nao quiser controlar estoque, deixa em branco — nao aparece nada. */}
+      <fieldset className="rounded-md border border-dashed border-[var(--border)] p-4">
+        <legend className="px-2 text-xs uppercase tracking-widest text-[var(--color-slate)]">
+          Estoque (opcional)
+        </legend>
+        <p className="mt-1 px-2 text-xs text-[var(--color-slate)]">
+          Preencha se quer receber alerta quando o estoque estiver acabando.
+          Deixe em branco pra ignorar.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="current_stock" hint={`em ${unit}`}>
+              Estoque atual
+            </Label>
+            <Input
+              id="current_stock"
+              name="current_stock"
+              inputMode="decimal"
+              defaultValue={
+                material?.current_stock != null
+                  ? String(material.current_stock)
+                  : ""
+              }
+              placeholder="—"
+            />
+          </div>
+          <div>
+            <Label htmlFor="low_stock_threshold" hint="dispara alerta">
+              Mínimo
+            </Label>
+            <Input
+              id="low_stock_threshold"
+              name="low_stock_threshold"
+              inputMode="decimal"
+              defaultValue={
+                material?.low_stock_threshold != null
+                  ? String(material.low_stock_threshold)
+                  : ""
+              }
+              placeholder="—"
+            />
+          </div>
+        </div>
+      </fieldset>
+
       {state.error && !state.fieldErrors ? (
         <p className="text-sm text-red-700">{state.error}</p>
       ) : null}

@@ -31,6 +31,12 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/canais", label: "Canais de venda", plans: ["basico", "full", "master"] },
   { href: "/clientes", label: "Clientes", plans: ["basico", "full", "master"] },
   { href: "/pedidos", label: "Pedidos", plans: ["basico", "full", "master"] },
+  { href: "/eventos", label: "Eventos", plans: ["basico", "full", "master"] },
+  {
+    href: "/inteligencia",
+    label: "Inteligência",
+    plans: ["full", "master"],
+  },
   { href: "/relatorios", label: "Relatórios", plans: ["full", "master"] },
   { href: "/financeiro", label: "Financeiro", plans: ["master"] },
   {
