@@ -135,6 +135,22 @@ export interface PackagingItem {
   cost: number;
 }
 
+/**
+ * Tier de preço por canal comercial (migration 006).
+ * Cada ficha pode ter varios tiers: varejo, atacado, revenda, eventos,
+ * casamentos, ou o que o usuario quiser adicionar.
+ *   key           identificador estavel (nao precisa ser unico entre fichas)
+ *   label         nome amigavel exibido na UI
+ *   target_margin margem alvo em %, usada pra calcular o preço minimo do tier
+ *   price         preço praticado. Pode ser diferente do sugerido pela margem
+ */
+export interface PricingTier {
+  key: string;
+  label: string;
+  target_margin: number;
+  price: number;
+}
+
 export interface TechnicalSheet {
   id: string;
   organization_id: string;
@@ -153,6 +169,10 @@ export interface TechnicalSheet {
   packaging_items: PackagingItem[]; // migration 004
   labor_cost: number;
   other_fixed_costs: number;
+
+  // Estratégia comercial (migration 006)
+  pricing_tiers: PricingTier[];
+  absolute_min_price: number | null;
 
   // Calculados (persistidos para histórico/listagem)
   ingredient_cost: number;

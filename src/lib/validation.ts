@@ -134,6 +134,50 @@ const packagingItemsSchema = z.preprocess(
   ),
 );
 
+/**
+ * Preprocessa `pricing_tiers` que chega como JSON string do form.
+ * Formato: [{"key":"varejo","label":"Varejo","target_margin":60,"price":16.99}]
+ * Filtra tiers sem label ou com valores invalidos.
+ */
+const pricingTiersSchema = z.preprocess(
+  (v) => {
+    if (typeof v !== "string" || !v.trim()) return [];
+    try {
+      const parsed = JSON.parse(v);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((it: unknown) => {
+          const obj = (it ?? {}) as Record<string, unknown>;
+          const key = String(obj.key ?? "").trim() || "custom";
+          const label = String(obj.label ?? "").trim();
+          const marginRaw = obj.target_margin;
+          const priceRaw = obj.price;
+          const target_margin = normalizeNum(marginRaw);
+          const price = normalizeNum(priceRaw);
+          return { key, label, target_margin, price };
+        })
+        .filter((t) => t.label.length > 0);
+    } catch {
+      return [];
+    }
+  },
+  z.array(
+    z.object({
+      key: z.string(),
+      label: z.string().min(1).max(60),
+      target_margin: z.number().min(0).max(99),
+      price: z.number().nonnegative(),
+    }),
+  ),
+);
+
+function normalizeNum(raw: unknown): number {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : 0;
+  if (typeof raw !== "string") return 0;
+  const n = Number(raw.trim().replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export const technicalSheetSchema = z.object({
   name: z.string().min(1).max(120),
   category: z.string().max(80).optional(),
@@ -148,6 +192,8 @@ export const technicalSheetSchema = z.object({
   packaging_items: packagingItemsSchema.optional().default([]),
   labor_cost: nonNegativeNumber.default(0),
   other_fixed_costs: nonNegativeNumber.default(0),
+  pricing_tiers: pricingTiersSchema.optional().default([]),
+  absolute_min_price: optionalNonNegative.optional(),
   notes: z.string().max(500).optional(),
 });
 

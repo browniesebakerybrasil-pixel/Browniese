@@ -38,7 +38,7 @@ export async function createTechnicalSheet(
     }
   }
 
-  const payload = withPackagingSum(parsed.data);
+  const payload = withRetailSync(withPackagingSum(parsed.data));
   const { data, error } = await supabase
     .from("technical_sheets")
     .insert({ organization_id: organization.id, ...payload })
@@ -66,11 +66,13 @@ export async function updateTechnicalSheet(
   // Busca o estado anterior pra montar o diff do histórico
   const { data: before } = await supabase
     .from("technical_sheets")
-    .select("sale_price, desired_margin, packaging_cost, packaging_items")
+    .select(
+      "sale_price, desired_margin, packaging_cost, packaging_items, pricing_tiers, absolute_min_price",
+    )
     .eq("id", id)
     .maybeSingle();
 
-  const payload = withPackagingSum(parsed.data);
+  const payload = withRetailSync(withPackagingSum(parsed.data));
   const { error } = await supabase
     .from("technical_sheets")
     .update(payload)
@@ -108,6 +110,33 @@ function withPackagingSum<
     0,
   );
   return { ...data, packaging_cost: Math.round(sum * 100) / 100 };
+}
+
+/**
+ * Se pricing_tiers tem tier "varejo", sincroniza sale_price/desired_margin
+ * com esse tier. Isso mantém compatibilidade com KPIs, CMV e outras telas
+ * que ainda leem sale_price/desired_margin diretos.
+ */
+function withRetailSync<
+  T extends {
+    pricing_tiers?: Array<{
+      key: string;
+      label: string;
+      target_margin: number;
+      price: number;
+    }>;
+    sale_price?: number;
+    desired_margin?: number;
+  },
+>(data: T): T {
+  const tiers = data.pricing_tiers ?? [];
+  const retail = tiers.find((t) => t.key === "varejo") ?? tiers[0];
+  if (!retail) return data;
+  return {
+    ...data,
+    sale_price: Math.round(Number(retail.price) * 100) / 100,
+    desired_margin: Math.round(Number(retail.target_margin) * 100) / 100,
+  };
 }
 
 export async function deleteTechnicalSheet(id: string) {
@@ -258,6 +287,13 @@ async function logSheetDiff(
         desired_margin?: number;
         packaging_cost?: number;
         packaging_items?: Array<{ name: string; cost: number }>;
+        pricing_tiers?: Array<{
+          key: string;
+          label: string;
+          target_margin: number;
+          price: number;
+        }>;
+        absolute_min_price?: number | null;
       }
     | null,
   after: {
@@ -265,6 +301,13 @@ async function logSheetDiff(
     desired_margin?: number;
     packaging_cost?: number;
     packaging_items?: Array<{ name: string; cost: number }>;
+    pricing_tiers?: Array<{
+      key: string;
+      label: string;
+      target_margin: number;
+      price: number;
+    }>;
+    absolute_min_price?: number | null;
   },
 ) {
   if (!before) return;
@@ -302,6 +345,42 @@ async function logSheetDiff(
       from_value: fmtBRL(oldPkg),
       to_value: fmtBRL(newPkg),
       description,
+    });
+  }
+
+  // Log preços por tier (migration 006). Detecta mudanças por chave.
+  const beforeTiers = before.pricing_tiers ?? [];
+  const afterTiers = after.pricing_tiers ?? [];
+  const beforeByKey = new Map(beforeTiers.map((t) => [t.key, t]));
+  for (const t of afterTiers) {
+    const prev = beforeByKey.get(t.key);
+    if (!prev) continue;
+    if (Math.abs(Number(prev.price) - Number(t.price)) > 0.001) {
+      await logSheetHistory(supabase, organizationId, sheetId, {
+        event_type: "price",
+        from_value: `${t.label}: ${fmtBRL(prev.price)}`,
+        to_value: `${t.label}: ${fmtBRL(t.price)}`,
+      });
+    }
+    if (Math.abs(Number(prev.target_margin) - Number(t.target_margin)) > 0.001) {
+      await logSheetHistory(supabase, organizationId, sheetId, {
+        event_type: "margin",
+        from_value: `${t.label}: ${prev.target_margin}%`,
+        to_value: `${t.label}: ${t.target_margin}%`,
+      });
+    }
+  }
+
+  // Preço mínimo absoluto
+  const oldAbs =
+    before.absolute_min_price == null ? null : Number(before.absolute_min_price);
+  const newAbs =
+    after.absolute_min_price == null ? null : Number(after.absolute_min_price);
+  if (oldAbs !== newAbs && (oldAbs != null || newAbs != null)) {
+    await logSheetHistory(supabase, organizationId, sheetId, {
+      event_type: "price",
+      from_value: oldAbs != null ? `mínimo absoluto: ${fmtBRL(oldAbs)}` : "sem mínimo",
+      to_value: newAbs != null ? `mínimo absoluto: ${fmtBRL(newAbs)}` : "sem mínimo",
     });
   }
 }

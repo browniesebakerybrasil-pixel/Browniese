@@ -9,7 +9,10 @@ import { SheetIngredientForm } from "@/components/fichas/sheet-ingredient-form";
 import { RemoveSheetIngredientButton } from "@/components/fichas/remove-sheet-ingredient-button";
 import { DeleteSheetButton } from "@/components/fichas/delete-sheet-button";
 import { formatCurrency, formatPercent } from "@/lib/utils";
+import { PricingPanel } from "@/components/fichas/pricing-panel";
+import { NegotiationSimulator } from "@/components/fichas/negotiation-simulator";
 import type {
+  PricingTier,
   RawMaterial,
   SheetHistoryEntry,
   Supply,
@@ -196,6 +199,24 @@ export default async function SheetDetailPage({
           }
         />
       </section>
+
+      {/* Painel de preços por canal + preço mínimo absoluto */}
+      <PricingPanel
+        tiers={(s.pricing_tiers ?? []) as PricingTier[]}
+        costPerUnit={costPerUnit}
+        absoluteMinPrice={
+          s.absolute_min_price != null ? Number(s.absolute_min_price) : null
+        }
+      />
+
+      {/* Simulador de negociação */}
+      <NegotiationSimulator
+        costPerUnit={costPerUnit}
+        absoluteMinPrice={
+          s.absolute_min_price != null ? Number(s.absolute_min_price) : null
+        }
+        defaultUnitPrice={Number(s.sale_price) || 0}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <Card>
