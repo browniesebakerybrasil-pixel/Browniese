@@ -96,6 +96,8 @@ function ModalBody({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Controla se mostra o campo de endereço — só faz sentido em "entrega"
+  const [deliveryType, setDeliveryType] = useState(order.delivery_type);
 
   // evita chamar onClose após desmontar (corrida com revalidate)
   const mountedRef = useRef(true);
@@ -270,7 +272,10 @@ function ModalBody({
             <Select
               id="delivery_type"
               name="delivery_type"
-              defaultValue={order.delivery_type}
+              value={deliveryType}
+              onChange={(e) =>
+                setDeliveryType(e.target.value as typeof deliveryType)
+              }
             >
               <option value="retirada">Retirada</option>
               <option value="entrega">Entrega</option>
@@ -278,15 +283,18 @@ function ModalBody({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="delivery_address">Endereço de entrega</Label>
-          <Input
-            id="delivery_address"
-            name="delivery_address"
-            defaultValue={order.delivery_address ?? ""}
-            placeholder="Rua, número, bairro"
-          />
-        </div>
+        {/* Endereço só aparece quando é entrega — evita ruído visual */}
+        {deliveryType === "entrega" ? (
+          <div>
+            <Label htmlFor="delivery_address">Endereço de entrega</Label>
+            <Input
+              id="delivery_address"
+              name="delivery_address"
+              defaultValue={order.delivery_address ?? ""}
+              placeholder="Rua, número, bairro"
+            />
+          </div>
+        ) : null}
 
         <div>
           <Label htmlFor="category" hint="comum, festival, encomenda">

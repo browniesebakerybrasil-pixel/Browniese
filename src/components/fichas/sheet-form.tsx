@@ -254,25 +254,38 @@ export function SheetForm({
           bater a margem que você quer. Você pode praticar acima disso.
         </p>
 
-        {/* Cada tier fica empilhado verticalmente (nome em cima, margem+preço
-             embaixo). Isso funciona bem em qualquer largura de tela — o form
-             pode estar dentro de um card lateral estreito. */}
-        <div className="mt-3 space-y-3">
+        {/* Cada tier é um card com hierarquia clara:
+             1) Nome do canal como título grande (input estilizado)
+             2) Divisor
+             3) Margem alvo + preço praticado lado a lado
+             4) Rodapé com preço mínimo calculado + botão remover
+             Bg cream + border marrom escuro dão contraste entre blocos. */}
+        <div className="mt-3 space-y-4">
           {tiers.map((t, idx) => {
             const minPrice = minPriceForMargin(t.target_margin);
             return (
               <div
                 key={idx}
-                className="space-y-2 rounded-md border border-[var(--border)] bg-white p-3"
+                className="overflow-hidden rounded-lg border-2 border-[var(--color-navy)]/10 bg-white shadow-sm"
               >
-                <Input
-                  placeholder="Nome (ex.: Varejo, Atacado, Casamentos)"
-                  value={t.label}
-                  onChange={(e) => updateTier(idx, "label", e.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-2">
+                {/* Header do tier — nome do canal em destaque */}
+                <div className="border-b border-[var(--border)] bg-[var(--color-cream-50)] px-4 py-3">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-slate)]">
+                    Canal
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Nome (ex.: Varejo)"
+                    value={t.label}
+                    onChange={(e) => updateTier(idx, "label", e.target.value)}
+                    className="mt-0.5 w-full border-0 bg-transparent p-0 font-serif text-lg text-[var(--color-navy)] outline-none placeholder:text-[var(--color-slate)]/60 focus:outline-none"
+                  />
+                </div>
+
+                {/* Corpo do tier — margem + preço */}
+                <div className="grid grid-cols-2 gap-3 p-4">
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-[var(--color-slate)]">
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-slate)]">
                       Margem alvo %
                     </p>
                     <Input
@@ -285,7 +298,7 @@ export function SheetForm({
                     />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-[var(--color-slate)]">
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-slate)]">
                       Preço praticado
                     </p>
                     <Input
@@ -296,10 +309,12 @@ export function SheetForm({
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+
+                {/* Rodapé do tier — preço mínimo + remover */}
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--color-cream-50)] px-4 py-2 text-xs">
                   <span className="text-[var(--color-slate)]">
                     Preço mínimo pra bater a margem:{" "}
-                    <span className="font-mono text-[var(--color-navy)]">
+                    <span className="font-mono font-semibold text-[var(--color-navy)]">
                       {costPerUnit > 0 ? formatCurrency(minPrice) : "—"}
                     </span>
                   </span>
