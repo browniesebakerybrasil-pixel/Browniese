@@ -183,45 +183,32 @@ export function SheetForm({
 
       <fieldset className="rounded-md border border-[var(--border)] p-4">
         <legend className="px-2 text-xs uppercase tracking-widest text-[var(--color-slate)]">
-          Custos fixos rateados (por ficha)
+          Custo fixo / produção (por ficha)
         </legend>
-        <div className="mt-2 grid gap-3 md:grid-cols-2">
-          <div>
-            <Label htmlFor="gas_cost">Gás</Label>
-            <Input
-              id="gas_cost"
-              name="gas_cost"
-              inputMode="decimal"
-              defaultValue={String(sheet?.gas_cost ?? 0)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="energy_cost">Energia</Label>
-            <Input
-              id="energy_cost"
-              name="energy_cost"
-              inputMode="decimal"
-              defaultValue={String(sheet?.energy_cost ?? 0)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="labor_cost">Mão de obra</Label>
-            <Input
-              id="labor_cost"
-              name="labor_cost"
-              inputMode="decimal"
-              defaultValue={String(sheet?.labor_cost ?? 0)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="other_fixed_costs">Outros</Label>
-            <Input
-              id="other_fixed_costs"
-              name="other_fixed_costs"
-              inputMode="decimal"
-              defaultValue={String(sheet?.other_fixed_costs ?? 0)}
-            />
-          </div>
+        <p className="mt-1 px-2 text-xs text-[var(--color-slate)]">
+          Um único valor que representa gás, energia, mão de obra e outros
+          gastos rateados por ficha. Ex.: R$ 2,00.
+        </p>
+        <div className="mt-3">
+          <Label htmlFor="other_fixed_costs" hint="R$">
+            Custo fixo total
+          </Label>
+          <Input
+            id="other_fixed_costs"
+            name="other_fixed_costs"
+            inputMode="decimal"
+            defaultValue={String(
+              Number(sheet?.gas_cost ?? 0) +
+                Number(sheet?.energy_cost ?? 0) +
+                Number(sheet?.labor_cost ?? 0) +
+                Number(sheet?.other_fixed_costs ?? 0),
+            )}
+            placeholder="2,00"
+          />
+          {/* Zera os campos legados no submit — o total vai só em other_fixed_costs. */}
+          <input type="hidden" name="gas_cost" value="0" />
+          <input type="hidden" name="energy_cost" value="0" />
+          <input type="hidden" name="labor_cost" value="0" />
         </div>
 
         {/* ------------------------------------------------------------------
@@ -250,34 +237,37 @@ export function SheetForm({
             Ex.: Caixinha, Sacolinha, Guardanapo. O total soma sozinho.
           </p>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-3">
             {rows.map((row, idx) => (
               <div
                 key={idx}
-                className="grid gap-2 rounded-md border border-[var(--border)] bg-white p-2 md:grid-cols-[1fr_140px_auto]"
+                className="space-y-2 rounded-md border border-[var(--border)] bg-white p-3"
               >
                 <Input
-                  placeholder="Nome (ex.: Caixinha)"
+                  placeholder="Nome (ex.: Caixinha, Sacolinha)"
                   value={row.name}
                   onChange={(e) => updateRow(idx, "name", e.target.value)}
                 />
-                <Input
-                  placeholder="R$ 0,00"
-                  inputMode="decimal"
-                  value={row.cost}
-                  onChange={(e) => updateRow(idx, "cost", e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={rows.length === 1}
-                  onClick={() =>
-                    setRows((prev) => prev.filter((_, i) => i !== idx))
-                  }
-                >
-                  Remover
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="R$ 0,00"
+                    inputMode="decimal"
+                    value={row.cost}
+                    onChange={(e) => updateRow(idx, "cost", e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={rows.length === 1}
+                    onClick={() =>
+                      setRows((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  >
+                    Remover
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
