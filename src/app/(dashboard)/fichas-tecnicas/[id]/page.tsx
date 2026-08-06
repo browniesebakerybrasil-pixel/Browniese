@@ -36,11 +36,17 @@ export default async function SheetDetailPage({
   if (!sheet) notFound();
   const s = sheet as TechnicalSheet;
 
+  // Mês corrente (yyyy-mm-01) — usado pra somar despesas fixas e vendas.
+  const nowIso = new Date().toISOString();
+  const currentMonthStart = `${nowIso.slice(0, 7)}-01`;
+
   const [
     { data: ingredients },
     { data: rawMaterials },
     { data: supplies },
     { data: history },
+    { data: monthFixedCosts },
+    { data: monthOrders },
   ] = await Promise.all([
     supabase
       .from("sheet_ingredients")
@@ -64,9 +70,68 @@ export default async function SheetDetailPage({
       .eq("sheet_id", id)
       .order("changed_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("fixed_costs")
+      .select("amount")
+      .eq("organization_id", organization.id)
+      .eq("reference_month", currentMonthStart),
+    supabase
+      .from("orders")
+      .select("id")
+      .eq("organization_id", organization.id)
+      .gte("order_date", currentMonthStart)
+      .not("order_status", "eq", "cancelado"),
   ]);
 
   const historyList = (history ?? []) as SheetHistoryEntry[];
+
+  // -------------------------------------------------------------------------
+  // Cálculo de rentabilidade por unidade
+  //
+  //   Lucro Bruto  = Preço − Custo total unitário
+  //                  (todas despesas da ficha ja estão em cost_per_unit)
+  //
+  //   Lucro Líquido Estimado = Lucro Bruto − rateio das despesas fixas
+  //                            mensais da empresa (Financeiro), dividido
+  //                            proporcionalmente pelas unidades vendidas
+  //                            no mês corrente. Se falta dado (sem Financeiro
+  //                            ou sem venda no mês), mostra placeholder.
+  // -------------------------------------------------------------------------
+  const salePrice = Number(s.sale_price);
+  const costPerUnit = Number(s.cost_per_unit);
+  const grossProfit = salePrice - costPerUnit;
+
+  const monthlyFixedTotal = ((monthFixedCosts ?? []) as Array<{
+    amount: number;
+  }>).reduce((acc, r) => acc + Number(r.amount ?? 0), 0);
+
+  const monthOrderIds = ((monthOrders ?? []) as Array<{ id: string }>).map(
+    (o) => o.id,
+  );
+  let monthUnitsTotal = 0;
+  if (monthOrderIds.length > 0) {
+    const { data: monthItems } = await supabase
+      .from("order_items")
+      .select("quantity")
+      .in("order_id", monthOrderIds);
+    monthUnitsTotal = ((monthItems ?? []) as Array<{ quantity: number }>).reduce(
+      (acc, it) => acc + Number(it.quantity ?? 0),
+      0,
+    );
+  }
+
+  const overheadPerUnit =
+    monthlyFixedTotal > 0 && monthUnitsTotal > 0
+      ? monthlyFixedTotal / monthUnitsTotal
+      : null;
+
+  const netProfit =
+    overheadPerUnit != null ? grossProfit - overheadPerUnit : null;
+
+  const netProfitHint =
+    overheadPerUnit != null
+      ? `após rateio de ${formatCurrency(overheadPerUnit)} por unidade em despesas fixas`
+      : "Cadastre despesas fixas em Financeiro para estimar.";
 
   return (
     <div className="space-y-6">
@@ -83,7 +148,7 @@ export default async function SheetDetailPage({
         }
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Kpi
           label="Custo total"
           value={formatCurrency(Number(s.total_cost))}
@@ -103,6 +168,32 @@ export default async function SheetDetailPage({
           label="Preço sugerido"
           value={formatCurrency(Number(s.suggested_price))}
           hint={`mínimo: ${formatCurrency(Number(s.minimum_price))}`}
+        />
+        <Kpi
+          label="Lucro Bruto"
+          value={
+            salePrice > 0
+              ? formatCurrency(grossProfit)
+              : "—"
+          }
+          hint={
+            salePrice > 0
+              ? "antes das despesas operacionais"
+              : "cadastre preço de venda"
+          }
+          tone={grossProfit > 0 ? "good" : grossProfit < 0 ? "danger" : "default"}
+        />
+        <Kpi
+          label="Lucro Líquido Estimado"
+          value={netProfit != null ? formatCurrency(netProfit) : "—"}
+          hint={netProfitHint}
+          tone={
+            netProfit == null
+              ? "default"
+              : netProfit > 0
+                ? "good"
+                : "danger"
+          }
         />
       </section>
 
@@ -282,19 +373,35 @@ function Kpi({
   label,
   value,
   hint,
+  tone = "default",
 }: {
   label: string;
   value: string;
   hint?: string;
+  tone?: "default" | "good" | "danger" | "warn";
 }) {
+  const border =
+    tone === "good"
+      ? "border-emerald-200"
+      : tone === "danger"
+        ? "border-red-200"
+        : tone === "warn"
+          ? "border-amber-200"
+          : "border-[var(--border)]";
+  const color =
+    tone === "good"
+      ? "text-emerald-800"
+      : tone === "danger"
+        ? "text-red-800"
+        : tone === "warn"
+          ? "text-amber-800"
+          : "text-[var(--color-navy)]";
   return (
-    <article className="rounded-lg border border-[var(--border)] bg-white p-5">
+    <article className={`rounded-lg border bg-white p-5 ${border}`}>
       <p className="text-xs uppercase tracking-widest text-[var(--color-slate)]">
         {label}
       </p>
-      <p className="mt-2 font-serif text-2xl text-[var(--color-navy)]">
-        {value}
-      </p>
+      <p className={`mt-2 font-serif text-2xl ${color}`}>{value}</p>
       {hint ? (
         <p className="mt-1 text-xs text-[var(--color-slate)]">{hint}</p>
       ) : null}
