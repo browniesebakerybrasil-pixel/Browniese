@@ -8,7 +8,11 @@ export default async function DashboardLayout({
   const { organization } = await requireOrganization();
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    // Wrapper com bg navy (marrom escuro) no md+: se por algum motivo a
+    // sidebar não esticar até o final (glitch de flexbox no Safari iPad em
+    // paginas com muito scroll), o gap fica invisivel porque tem o mesmo
+    // tom do sidebar. Mobile mantem fundo claro (drawer flutua sobre).
+    <div className="flex min-h-screen flex-col md:flex-row md:bg-[var(--color-navy)]">
       <Sidebar
         plan={organization.plan}
         organizationName={organization.name}

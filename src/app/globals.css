@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   Stoque — design tokens
+   Brownie-se — design tokens
    ============================================================================
-   Paleta institucional:
-     navy   #0C3C59  cor principal (sidebar, headings)
-     brown  #AD7039  destaques / botões primários
-     gold   #D9A441  ações especiais / chips
-     cream  #F2E7D5  fundos claros
-     slate  #4A6572  texto secundário
+   Paleta alinhada com a identidade da Brownie-se Bakery (marrom + dourado
+   + creme). O nome `--color-navy` foi mantido por compatibilidade retro,
+   mas agora carrega o marrom escuro da marca (fundo sidebar e headings).
+
+     navy (dark brown)  #3B2618  cor principal (sidebar, headings)
+     brown              #AD7039  destaques / botões primários
+     gold               #C39758  ações especiais / chips (tom da marca)
+     cream              #F5EDDC  fundos claros (tom da marca)
+     slate              #6B584A  texto secundário (marrom acinzentado)
 
    Fontes:
      DM Sans            -> corpo
@@ -16,21 +19,21 @@
    ============================================================================ */
 
 :root {
-  --color-navy: #0c3c59;
-  --color-navy-600: #0a3550;
-  --color-navy-700: #082a40;
+  --color-navy: #3b2618;
+  --color-navy-600: #2e1a0f;
+  --color-navy-700: #221208;
   --color-brown: #ad7039;
   --color-brown-600: #97612f;
-  --color-gold: #d9a441;
-  --color-cream: #f2e7d5;
-  --color-cream-50: #faf3e6;
-  --color-slate: #4a6572;
-  --color-slate-300: #94a3af;
+  --color-gold: #c39758;
+  --color-cream: #f5eddc;
+  --color-cream-50: #faf6ea;
+  --color-slate: #6b584a;
+  --color-slate-300: #a89787;
 
-  --background: #fbf7ef;
-  --foreground: #0c3c59;
-  --muted: #4a6572;
-  --border: #e6dcc7;
+  --background: #faf6ea;
+  --foreground: #2e1a0f;
+  --muted: #6b584a;
+  --border: #e8dcc5;
 }
 
 @theme inline {
