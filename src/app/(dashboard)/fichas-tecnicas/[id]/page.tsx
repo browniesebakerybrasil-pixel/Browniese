@@ -218,7 +218,7 @@ export default async function SheetDetailPage({
         defaultUnitPrice={Number(s.sale_price) || 0}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <Card>
           <h3 className="font-serif text-lg text-[var(--color-navy)]">
             Ingredientes da receita

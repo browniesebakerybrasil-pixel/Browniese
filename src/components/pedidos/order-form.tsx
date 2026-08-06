@@ -165,7 +165,7 @@ export function OrderForm({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Label htmlFor="category" hint="marca festival/encomenda">
             Categoria
@@ -214,7 +214,7 @@ export function OrderForm({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="delivery_type">Tipo de entrega</Label>
           <Select

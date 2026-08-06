@@ -254,55 +254,67 @@ export function SheetForm({
           bater a margem que você quer. Você pode praticar acima disso.
         </p>
 
-        <div className="mt-3 hidden text-xs uppercase tracking-widest text-[var(--color-slate)] md:grid md:grid-cols-[1fr_100px_120px_120px_auto] md:gap-3 md:px-2">
-          <span>Canal</span>
-          <span>Margem %</span>
-          <span>Preço mín. (calc.)</span>
-          <span>Preço praticado</span>
-          <span></span>
-        </div>
-
-        <div className="mt-2 space-y-2">
+        {/* Cada tier fica empilhado verticalmente (nome em cima, margem+preço
+             embaixo). Isso funciona bem em qualquer largura de tela — o form
+             pode estar dentro de um card lateral estreito. */}
+        <div className="mt-3 space-y-3">
           {tiers.map((t, idx) => {
             const minPrice = minPriceForMargin(t.target_margin);
             return (
               <div
                 key={idx}
-                className="grid gap-2 rounded-md border border-[var(--border)] bg-white p-3 md:grid-cols-[1fr_100px_120px_120px_auto] md:items-center md:p-2"
+                className="space-y-2 rounded-md border border-[var(--border)] bg-white p-3"
               >
                 <Input
-                  placeholder="Nome (ex.: Varejo)"
+                  placeholder="Nome (ex.: Varejo, Atacado, Casamentos)"
                   value={t.label}
                   onChange={(e) => updateTier(idx, "label", e.target.value)}
                 />
-                <Input
-                  placeholder="60"
-                  inputMode="decimal"
-                  value={t.target_margin}
-                  onChange={(e) =>
-                    updateTier(idx, "target_margin", e.target.value)
-                  }
-                />
-                <div className="rounded-md bg-[var(--color-cream-50)] px-2 py-2 text-sm text-[var(--color-slate)]">
-                  {costPerUnit > 0 ? formatCurrency(minPrice) : "—"}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-[var(--color-slate)]">
+                      Margem alvo %
+                    </p>
+                    <Input
+                      placeholder="60"
+                      inputMode="decimal"
+                      value={t.target_margin}
+                      onChange={(e) =>
+                        updateTier(idx, "target_margin", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-[var(--color-slate)]">
+                      Preço praticado
+                    </p>
+                    <Input
+                      placeholder="R$ 0,00"
+                      inputMode="decimal"
+                      value={t.price}
+                      onChange={(e) => updateTier(idx, "price", e.target.value)}
+                    />
+                  </div>
                 </div>
-                <Input
-                  placeholder="R$ 0,00"
-                  inputMode="decimal"
-                  value={t.price}
-                  onChange={(e) => updateTier(idx, "price", e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={tiers.length === 1}
-                  onClick={() =>
-                    setTiers((prev) => prev.filter((_, i) => i !== idx))
-                  }
-                >
-                  Remover
-                </Button>
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2 text-xs">
+                  <span className="text-[var(--color-slate)]">
+                    Preço mínimo pra bater a margem:{" "}
+                    <span className="font-mono text-[var(--color-navy)]">
+                      {costPerUnit > 0 ? formatCurrency(minPrice) : "—"}
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={tiers.length === 1}
+                    onClick={() =>
+                      setTiers((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  >
+                    Remover
+                  </Button>
+                </div>
               </div>
             );
           })}
