@@ -47,9 +47,10 @@ export function Sidebar({ plan, organizationName }: SidebarProps) {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-64 transform bg-[var(--color-navy)] text-white transition-transform",
-          // Desktop: nao é mais fixed. Vira sticky no topo com altura de
-          // 100vh, sempre visível ao rolar, sem gap embaixo em páginas longas.
-          "md:sticky md:top-0 md:h-screen md:translate-x-0 md:transform-none md:transition-none",
+          // Desktop: static (flexbox padrão) — sem sticky, senão quebra o
+          // contexto de drag-and-drop do Kanban. Gap eventual embaixo é
+          // resolvido pelo bg-navy do wrapper no layout.tsx.
+          "md:static md:translate-x-0 md:transform-none md:transition-none",
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
