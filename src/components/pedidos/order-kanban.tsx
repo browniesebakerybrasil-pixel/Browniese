@@ -322,30 +322,51 @@ function SortableCard({
     transition,
   };
 
-  // IMPORTANTE: os listeners do dnd-kit ficam num HANDLE separado no topo do
-  // card. O resto do card (inclusive o botão "Marcar como pago") fica livre
-  // de captura de eventos, então cliques funcionam normalmente em mouse e
-  // touch. Sem isso, o dnd-kit intercepta o pointerdown e o click nunca dispara.
+  // Handle de arraste é uma barra CLARA e ALTA no topo do card. O resto do
+  // card fica livre pra cliques (abrir modal, botão de pagamento). Sem essa
+  // separação, dnd-kit intercepta o click do botão.
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="relative">
-      {/* Handle de arraste: ocupa a barra superior do card */}
+      {/* Handle de arraste — bem visível, altura confortável pra touch */}
       <div
         {...listeners}
         style={{ touchAction: "none" }}
-        className="absolute inset-x-0 top-0 z-10 flex h-6 cursor-grab items-center justify-center rounded-t-md bg-transparent text-[var(--color-slate)] active:cursor-grabbing"
+        className="flex h-8 w-full cursor-grab items-center justify-center gap-2 rounded-t-md border border-b-0 border-[var(--border)] bg-[var(--color-cream-50)] text-[var(--color-slate)] transition-colors hover:bg-[var(--color-cream)] active:cursor-grabbing active:bg-[var(--color-cream)]"
         aria-label="Arrastar pedido"
         title="Arraste para mudar de coluna"
       >
-        <span className="pointer-events-none block h-1 w-8 rounded-full bg-[var(--color-slate)]/25" />
+        <GripIcon />
+        <span className="pointer-events-none text-[10px] font-medium uppercase tracking-widest">
+          arraste
+        </span>
+        <GripIcon />
       </div>
-      <div className="pt-4">
-        <OrderCard
-          order={order}
-          onOpen={onOpen}
-          onMarkPaid={onMarkPaid}
-          isDragging={isDragging || isActive}
-        />
-      </div>
+      <OrderCard
+        order={order}
+        onOpen={onOpen}
+        onMarkPaid={onMarkPaid}
+        isDragging={isDragging || isActive}
+      />
     </div>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="12"
+      height="12"
+      aria-hidden
+      fill="currentColor"
+      className="pointer-events-none opacity-60"
+    >
+      <circle cx="7" cy="6" r="1.4" />
+      <circle cx="7" cy="10" r="1.4" />
+      <circle cx="7" cy="14" r="1.4" />
+      <circle cx="13" cy="6" r="1.4" />
+      <circle cx="13" cy="10" r="1.4" />
+      <circle cx="13" cy="14" r="1.4" />
+    </svg>
   );
 }
