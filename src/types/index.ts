@@ -260,6 +260,9 @@ export interface Order {
 
   // migration 003
   category: OrderCategory;
+
+  // migration 007 — vincula pedido a evento (festival, feira, casamento)
+  event_id: string | null;
 }
 
 export interface Customer {

@@ -26,7 +26,7 @@ export default async function OrdersPage() {
     supabase
       .from("orders")
       .select(
-        "id, order_number, order_date, order_time, delivery_date, delivery_type, delivery_address, order_status, payment_status, payment_method, total_amount, net_amount, amount_paid, notes, customer_id, customer_name, category, channel:sales_channels(id, name, fee_percentage), customer:customers(id, name, whatsapp, address), items:order_items(id, product_name, quantity, unit_price, total_price)",
+        "id, order_number, order_date, order_time, delivery_date, delivery_type, delivery_address, order_status, payment_status, payment_method, total_amount, net_amount, amount_paid, notes, customer_id, customer_name, category, event_id, channel:sales_channels(id, name, fee_percentage), customer:customers(id, name, whatsapp, address), event:events(id, name, event_date), items:order_items(id, product_name, quantity, unit_price, total_price)",
       )
       .eq("organization_id", organization.id)
       .gte("order_date", sinceStr)

@@ -48,6 +48,7 @@ const orderFormSchema = z.object({
   amount_paid: numberFromInput.optional(),
   order_status: orderStatusEnum.default("novo"),
   category: orderCategoryEnum.default("comum"),
+  event_id: z.string().uuid().optional().or(z.literal("")),
   notes: z.string().max(500).optional().or(z.literal("")),
 });
 
@@ -82,6 +83,7 @@ export async function createOrder(
     amount_paid: formData.get("amount_paid") ?? "0",
     order_status: formData.get("order_status") ?? "novo",
     category: formData.get("category") ?? "comum",
+    event_id: formData.get("event_id") ?? "",
     notes: formData.get("notes") ?? "",
   });
   if (!baseParse.success) {
@@ -179,6 +181,7 @@ export async function createOrder(
       payment_method: baseParse.data.payment_method as PaymentMethod,
       amount_paid: amountPaid,
       category: baseParse.data.category as OrderCategory,
+      event_id: baseParse.data.event_id || null,
       notes: baseParse.data.notes || null,
       total_amount: round2(grossAmount),
       net_amount: round2(netAmount),
@@ -343,6 +346,172 @@ export async function deleteOrder(id: string) {
   await supabase.from("orders").delete().eq("id", id);
   revalidatePath("/pedidos");
   revalidatePath("/dashboard");
+}
+
+/**
+ * Edição completa de pedido (cliente, itens, tudo). Chamada pela tela
+ * /pedidos/[id]/editar. Diferente do updateOrderFromModal (que é edição
+ * rápida de status/pagamento) — aqui refaz a linha inteira do pedido +
+ * substitui todos os itens.
+ */
+export async function updateOrder(
+  id: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { organization } = await requireOrganization();
+
+  const baseParse = orderFormSchema.safeParse({
+    customer_id: formData.get("customer_id") ?? "",
+    customer_name: formData.get("customer_name") ?? "",
+    sales_channel_id: formData.get("sales_channel_id") ?? "",
+    order_date: formData.get("order_date") ?? "",
+    delivery_date: formData.get("delivery_date") ?? "",
+    delivery_type: formData.get("delivery_type") ?? "retirada",
+    delivery_address: formData.get("delivery_address") ?? "",
+    payment_status: formData.get("payment_status") ?? "nao_pago",
+    payment_method: formData.get("payment_method") ?? "pix",
+    amount_paid: formData.get("amount_paid") ?? "0",
+    order_status: formData.get("order_status") ?? "novo",
+    category: formData.get("category") ?? "comum",
+    event_id: formData.get("event_id") ?? "",
+    notes: formData.get("notes") ?? "",
+  });
+  if (!baseParse.success) {
+    return {
+      ok: false,
+      error: "Dados do pedido invalidos: " + (baseParse.error.issues[0]?.message ?? ""),
+    };
+  }
+
+  const itemRows = collectItems(formData);
+  if (itemRows.length === 0) {
+    return { ok: false, error: "Adicione ao menos um item." };
+  }
+
+  const items: Array<{
+    technical_sheet_id: string | null;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+  }> = [];
+  for (const row of itemRows) {
+    const parsed = orderItemFormSchema.safeParse(row);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: "Item invalido: " + (parsed.error.issues[0]?.message ?? "verifique"),
+      };
+    }
+    items.push({
+      technical_sheet_id: parsed.data.technical_sheet_id || null,
+      product_name: parsed.data.product_name,
+      quantity: parsed.data.quantity,
+      unit_price: parsed.data.unit_price,
+    });
+  }
+
+  const supabase = createAdminClient();
+
+  // Confirma que o pedido pertence a org (evita edicao cruzada)
+  const { data: existing } = await supabase
+    .from("orders")
+    .select("id, customer_id")
+    .eq("id", id)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+  if (!existing) {
+    return { ok: false, error: "Pedido não encontrado." };
+  }
+
+  // Taxa do canal
+  let feePct = 0;
+  const channelId = baseParse.data.sales_channel_id || null;
+  if (channelId) {
+    const { data: channel } = await supabase
+      .from("sales_channels")
+      .select("fee_percentage")
+      .eq("id", channelId)
+      .maybeSingle();
+    feePct = Number(
+      (channel as Pick<SalesChannel, "fee_percentage"> | null)?.fee_percentage ?? 0,
+    );
+  }
+
+  const { grossAmount, netAmount } = calcOrderTotals(
+    items.map((i) => ({ quantity: i.quantity, unitPrice: i.unit_price })),
+    feePct,
+  );
+
+  const customerId = baseParse.data.customer_id || null;
+  let customerName = baseParse.data.customer_name?.trim() || null;
+  if (customerId && !customerName) {
+    const { data: cust } = await supabase
+      .from("customers")
+      .select("name")
+      .eq("id", customerId)
+      .maybeSingle();
+    customerName = (cust as { name: string } | null)?.name ?? null;
+  }
+
+  const paymentStatus: PaymentStatus = baseParse.data.payment_status;
+  const amountPaidRaw = Number(baseParse.data.amount_paid ?? 0);
+  const amountPaid =
+    paymentStatus === "pago"
+      ? grossAmount
+      : paymentStatus === "sinal_pago"
+        ? round2(amountPaidRaw)
+        : 0;
+
+  const { error: updErr } = await supabase
+    .from("orders")
+    .update({
+      sales_channel_id: channelId,
+      customer_id: customerId,
+      customer_name: customerName,
+      order_date:
+        baseParse.data.order_date || new Date().toISOString().slice(0, 10),
+      delivery_date: baseParse.data.delivery_date || null,
+      delivery_type: baseParse.data.delivery_type as DeliveryType,
+      delivery_address:
+        baseParse.data.delivery_type === "entrega"
+          ? baseParse.data.delivery_address || null
+          : null,
+      order_status: baseParse.data.order_status as OrderStatus,
+      payment_status: paymentStatus,
+      payment_method: baseParse.data.payment_method as PaymentMethod,
+      amount_paid: amountPaid,
+      category: baseParse.data.category as OrderCategory,
+      event_id: baseParse.data.event_id || null,
+      notes: baseParse.data.notes || null,
+      total_amount: round2(grossAmount),
+      net_amount: round2(netAmount),
+    })
+    .eq("id", id);
+  if (updErr) {
+    console.error("[updateOrder]", updErr);
+    return { ok: false, error: "Erro ao salvar alterações." };
+  }
+
+  // Substitui todos os itens (apaga antigos, insere novos)
+  await supabase.from("order_items").delete().eq("order_id", id);
+  const { error: itemsErr } = await supabase.from("order_items").insert(
+    items.map((i) => ({
+      order_id: id,
+      technical_sheet_id: i.technical_sheet_id,
+      product_name: i.product_name,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+    })),
+  );
+  if (itemsErr) {
+    console.error("[updateOrder items]", itemsErr);
+    return { ok: false, error: "Erro ao atualizar itens." };
+  }
+
+  revalidatePath("/pedidos");
+  revalidatePath("/dashboard");
+  redirect("/pedidos");
 }
 
 function collectItems(

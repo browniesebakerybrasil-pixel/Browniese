@@ -30,6 +30,8 @@ export interface KanbanOrder {
   customer_id: string | null;
   customer_name: string | null;
   category: OrderCategory;
+  event_id: string | null;
+  event: { id: string; name: string; event_date: string } | null;
 
   channel: Pick<SalesChannel, "id" | "name" | "fee_percentage"> | null;
   customer: Pick<Customer, "id" | "name" | "whatsapp" | "address"> | null;

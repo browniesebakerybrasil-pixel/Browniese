@@ -8,7 +8,7 @@ import {
   Select,
   Textarea,
 } from "@/components/ui/input";
-import { createOrder } from "@/app/(dashboard)/pedidos/actions";
+import { createOrder, updateOrder } from "@/app/(dashboard)/pedidos/actions";
 import { calcOrderTotals, formatCurrency } from "@/lib/utils";
 import {
   emptyActionState,
@@ -18,12 +18,41 @@ import { ORDER_CATEGORY_OPTIONS } from "./order-constants";
 import type {
   Customer,
   DeliveryType,
+  EventItem,
   OrderCategory,
   PaymentMethod,
   PaymentStatus,
   SalesChannel,
   TechnicalSheet,
 } from "@/types";
+
+/**
+ * Forma minima de um pedido em edicao. So os campos usados pelo form.
+ */
+export interface EditableOrder {
+  id: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  sales_channel_id: string | null;
+  order_date: string;
+  delivery_date: string | null;
+  delivery_type: DeliveryType;
+  delivery_address: string | null;
+  payment_status: PaymentStatus;
+  payment_method: PaymentMethod;
+  amount_paid: number;
+  order_status: string;
+  category: OrderCategory;
+  event_id: string | null;
+  notes: string | null;
+  items: Array<{
+    id: string;
+    technical_sheet_id: string | null;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+  }>;
+}
 
 interface ItemRow {
   technical_sheet_id: string;
@@ -62,27 +91,58 @@ export function OrderForm({
   channels,
   sheets,
   customers,
+  events = [],
+  mode = "create",
+  order,
 }: {
   channels: SalesChannel[];
   sheets: Pick<TechnicalSheet, "id" | "name" | "sale_price">[];
   customers: Customer[];
+  events?: EventItem[];
+  mode?: "create" | "edit";
+  order?: EditableOrder;
 }) {
-  const [items, setItems] = useState<ItemRow[]>([blankItem()]);
+  const [items, setItems] = useState<ItemRow[]>(() => {
+    if (mode === "edit" && order && order.items.length > 0) {
+      return order.items.map((it) => ({
+        technical_sheet_id: it.technical_sheet_id ?? "",
+        product_name: it.product_name,
+        quantity: String(it.quantity),
+        unit_price: String(Number(it.unit_price)).replace(".", ","),
+      }));
+    }
+    return [blankItem()];
+  });
   const [channelId, setChannelId] = useState<string>(
-    channels.find((c) => c.name.toLowerCase() === "balcão")?.id ??
+    order?.sales_channel_id ??
+      channels.find((c) => c.name.toLowerCase() === "balcão")?.id ??
       channels[0]?.id ??
       "",
   );
-  const [customerId, setCustomerId] = useState<string>("");
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>("retirada");
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("nao_pago");
-  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
-  const [category, setCategory] = useState<OrderCategory>("comum");
+  const [customerId, setCustomerId] = useState<string>(order?.customer_id ?? "");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>(
+    order?.delivery_type ?? "retirada",
+  );
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
+    order?.payment_status ?? "nao_pago",
+  );
+  const [deliveryAddress, setDeliveryAddress] = useState<string>(
+    order?.delivery_address ?? "",
+  );
+  const [category, setCategory] = useState<OrderCategory>(
+    order?.category ?? "comum",
+  );
+  const [eventId, setEventId] = useState<string>(order?.event_id ?? "");
 
+  // Bind da server action correta conforme o modo
+  const action =
+    mode === "edit" && order
+      ? updateOrder.bind(null, order.id)
+      : createOrder;
   const [state, formAction, pending] = useActionState<
     ActionStateT,
     FormData
-  >(createOrder, emptyActionState());
+  >(action, emptyActionState());
 
   const fee = useMemo(() => {
     const ch = channels.find((c) => c.id === channelId);
@@ -161,15 +221,14 @@ export function OrderForm({
             id="customer_name"
             name="customer_name"
             placeholder="Cliente sem cadastro"
+            defaultValue={order?.customer_name ?? ""}
           />
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Label htmlFor="category" hint="marca festival/encomenda">
-            Categoria
-          </Label>
+          <Label htmlFor="category">Categoria</Label>
           <Select
             id="category"
             name="category"
@@ -205,14 +264,54 @@ export function OrderForm({
             id="order_date"
             name="order_date"
             type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={
+              order?.order_date ?? new Date().toISOString().slice(0, 10)
+            }
           />
         </div>
         <div>
           <Label htmlFor="delivery_date">Data de entrega</Label>
-          <Input id="delivery_date" name="delivery_date" type="date" />
+          <Input
+            id="delivery_date"
+            name="delivery_date"
+            type="date"
+            defaultValue={order?.delivery_date ?? ""}
+          />
         </div>
       </div>
+
+      {/* Seletor de evento — só aparece quando categoria = festival */}
+      {category === "festival" ? (
+        <div className="rounded-md border border-purple-200 bg-purple-50 p-4">
+          <Label htmlFor="event_id">
+            Vincular a qual festival/evento
+          </Label>
+          <Select
+            id="event_id"
+            name="event_id"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+          >
+            <option value="">Sem evento vinculado</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name} · {ev.event_date}
+              </option>
+            ))}
+          </Select>
+          {events.length === 0 ? (
+            <p className="mt-2 text-xs text-purple-900/70">
+              Nenhum evento cadastrado ainda. Cadastre em{" "}
+              <a href="/eventos" className="underline">
+                Eventos
+              </a>{" "}
+              e volte aqui.
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <input type="hidden" name="event_id" value="" />
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -345,7 +444,11 @@ export function OrderForm({
         <div className="grid gap-3 md:grid-cols-3">
           <div>
             <Label htmlFor="payment_method">Forma de pagamento</Label>
-            <Select id="payment_method" name="payment_method" defaultValue="pix">
+            <Select
+              id="payment_method"
+              name="payment_method"
+              defaultValue={order?.payment_method ?? "pix"}
+            >
               {PAYMENT_METHODS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
@@ -380,6 +483,11 @@ export function OrderForm({
                 name="amount_paid"
                 inputMode="decimal"
                 placeholder="0,00"
+                defaultValue={
+                  order?.amount_paid != null
+                    ? String(order.amount_paid).replace(".", ",")
+                    : ""
+                }
               />
             </div>
           ) : (
@@ -389,12 +497,23 @@ export function OrderForm({
               value={paymentStatus === "pago" ? totals.grossAmount : 0}
             />
           )}
+          {/* order_status hidden — editado pelo Kanban/modal, não no form */}
+          <input
+            type="hidden"
+            name="order_status"
+            value={order?.order_status ?? "novo"}
+          />
         </div>
       </fieldset>
 
       <div>
         <Label htmlFor="notes">Observações</Label>
-        <Textarea id="notes" name="notes" placeholder="Recados internos, preferências do cliente" />
+        <Textarea
+          id="notes"
+          name="notes"
+          placeholder="Recados internos, preferências do cliente"
+          defaultValue={order?.notes ?? ""}
+        />
       </div>
 
       <div className="grid gap-2 rounded-md bg-[var(--color-cream-50)] p-4 md:grid-cols-3">
@@ -416,7 +535,11 @@ export function OrderForm({
 
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando..." : "Registrar pedido"}
+          {pending
+            ? "Salvando..."
+            : mode === "edit"
+              ? "Salvar alterações"
+              : "Registrar pedido"}
         </Button>
       </div>
     </form>

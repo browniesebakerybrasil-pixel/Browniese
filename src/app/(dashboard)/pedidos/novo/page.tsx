@@ -3,7 +3,12 @@ import { requireOrganization } from "@/lib/auth/organization";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardHeader } from "@/components/ui/card";
 import { OrderForm } from "@/components/pedidos/order-form";
-import type { Customer, SalesChannel, TechnicalSheet } from "@/types";
+import type {
+  Customer,
+  EventItem,
+  SalesChannel,
+  TechnicalSheet,
+} from "@/types";
 
 export const metadata = { title: "Novo pedido" };
 
@@ -11,25 +16,37 @@ export default async function NewOrderPage() {
   const { organization } = await requireOrganization();
   const supabase = createAdminClient();
 
-  const [{ data: channels }, { data: sheets }, { data: customers }] =
-    await Promise.all([
-      supabase
-        .from("sales_channels")
-        .select("*")
-        .eq("organization_id", organization.id)
-        .eq("is_active", true)
-        .order("name"),
-      supabase
-        .from("technical_sheets")
-        .select("id, name, sale_price")
-        .eq("organization_id", organization.id)
-        .order("name"),
-      supabase
-        .from("customers")
-        .select("*")
-        .eq("organization_id", organization.id)
-        .order("name"),
-    ]);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const [
+    { data: channels },
+    { data: sheets },
+    { data: customers },
+    { data: events },
+  ] = await Promise.all([
+    supabase
+      .from("sales_channels")
+      .select("*")
+      .eq("organization_id", organization.id)
+      .eq("is_active", true)
+      .order("name"),
+    supabase
+      .from("technical_sheets")
+      .select("id, name, sale_price")
+      .eq("organization_id", organization.id)
+      .order("name"),
+    supabase
+      .from("customers")
+      .select("*")
+      .eq("organization_id", organization.id)
+      .order("name"),
+    supabase
+      .from("events")
+      .select("*")
+      .eq("organization_id", organization.id)
+      .gte("event_date", todayStr)
+      .order("event_date", { ascending: true }),
+  ]);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -55,6 +72,7 @@ export default async function NewOrderPage() {
             >[]
           }
           customers={(customers ?? []) as Customer[]}
+          events={(events ?? []) as EventItem[]}
         />
       </Card>
     </div>

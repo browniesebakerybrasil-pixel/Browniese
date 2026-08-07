@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -179,19 +180,26 @@ function ModalBody({
           Itens
         </h3>
         <ul className="mt-2 divide-y divide-[var(--border)] rounded-md border border-[var(--border)] bg-white">
-          {order.items.map((it) => (
-            <li
-              key={it.id}
-              className="flex items-center justify-between px-3 py-2 text-sm"
-            >
-              <span>
-                {it.quantity}× {it.product_name}
-              </span>
-              <span className="font-medium text-[var(--color-slate)]">
-                {formatCurrency(Number(it.total_price))}
-              </span>
-            </li>
-          ))}
+          {order.items.map((it) => {
+            // Fallback: se total_price ainda for 0 (caso do banco antigo sem
+            // a coluna GENERATED), calcula na hora.
+            const total =
+              Number(it.total_price) ||
+              Number(it.quantity) * Number(it.unit_price);
+            return (
+              <li
+                key={it.id}
+                className="flex items-center justify-between px-3 py-2 text-sm"
+              >
+                <span>
+                  {it.quantity}× {it.product_name}
+                </span>
+                <span className="font-medium text-[var(--color-navy)]">
+                  {formatCurrency(total)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
@@ -324,13 +332,21 @@ function ModalBody({
 
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
-        <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Salvando..." : "Salvar alterações"}
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
+          <Link
+            href={`/pedidos/${order.id}/editar`}
+            className="text-sm text-[var(--color-brown)] hover:underline"
+          >
+            Editar pedido completo (itens, cliente…)
+          </Link>
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
         </div>
       </form>
     </div>
