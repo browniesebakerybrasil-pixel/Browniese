@@ -8,10 +8,12 @@ import {
   MouseSensor,
   PointerSensor,
   TouchSensor,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -82,6 +84,23 @@ export function OrderKanban({ orders, channels }: Props) {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  /**
+   * Detecção de colisão custom pra Kanban multi-coluna.
+   * Prioriza `pointerWithin` (ponteiro DENTRO de uma coluna) — mais preciso
+   * pra saber onde o usuario esta soltando. Se não encontrar, cai pra
+   * `rectIntersection` (área do card sobrepondo alguma coluna).
+   *
+   * Estava usando `closestCorners`, que priorizava o card MAIS PROXIMO —
+   * mas quando arrastava entre colunas, priorizava um card da COLUNA ORIGEM
+   * (mais próximo geograficamente que os das outras colunas) e concluia que
+   * o destino era a mesma coluna. Por isso o card "voltava".
+   */
+  const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
+    const pointer = pointerWithin(args);
+    if (pointer.length > 0) return pointer;
+    return rectIntersection(args);
+  }, []);
 
   const filtered = useMemo(
     () => applyFilters(localOrders, filters),
@@ -193,7 +212,7 @@ export function OrderKanban({ orders, channels }: Props) {
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetectionStrategy}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
