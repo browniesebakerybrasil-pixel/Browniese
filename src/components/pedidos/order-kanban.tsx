@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -60,6 +60,14 @@ export function OrderKanban({ orders, channels }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  // Estado local otimista: espelha os pedidos vindos do servidor mas permite
+  // "mover" um card localmente enquanto o server processa o update. Isso
+  // evita o efeito "card volta pra origem" quando o servidor demora.
+  const [localOrders, setLocalOrders] = useState<KanbanOrder[]>(orders);
+  useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -76,8 +84,8 @@ export function OrderKanban({ orders, channels }: Props) {
   );
 
   const filtered = useMemo(
-    () => applyFilters(orders, filters),
-    [orders, filters],
+    () => applyFilters(localOrders, filters),
+    [localOrders, filters],
   );
 
   const byStatus = useMemo(() => {
@@ -95,13 +103,13 @@ export function OrderKanban({ orders, channels }: Props) {
   }, [filtered]);
 
   const activeOrder = useMemo(
-    () => (activeId ? orders.find((o) => o.id === activeId) ?? null : null),
-    [orders, activeId],
+    () => (activeId ? localOrders.find((o) => o.id === activeId) ?? null : null),
+    [localOrders, activeId],
   );
 
   const opened = useMemo(
-    () => orders.find((o) => o.id === openId) ?? null,
-    [orders, openId],
+    () => localOrders.find((o) => o.id === openId) ?? null,
+    [localOrders, openId],
   );
 
   function handleDragStart(e: DragStartEvent) {
@@ -113,13 +121,10 @@ export function OrderKanban({ orders, channels }: Props) {
     setActiveId(null);
     if (!e.over) return;
 
-    // overId pode ser o id de um card destino (mesma/outra coluna) OU
-    // o id da coluna (quando soltou na area vazia).
     const overId = String(e.over.id);
-    const order = orders.find((o) => o.id === id);
+    const order = localOrders.find((o) => o.id === id);
     if (!order) return;
 
-    // Se o overId for um status conhecido -> e a coluna.
     const knownStatuses: OrderStatus[] = [
       "novo",
       "confirmado",
@@ -133,19 +138,44 @@ export function OrderKanban({ orders, channels }: Props) {
     if ((knownStatuses as string[]).includes(overId)) {
       target = overId as OrderStatus;
     } else {
-      const overOrder = orders.find((o) => o.id === overId);
+      const overOrder = localOrders.find((o) => o.id === overId);
       if (overOrder) target = overOrder.order_status;
     }
     if (!target || target === order.order_status) return;
 
+    // 1) Update otimista: move o card localmente na hora
+    setLocalOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, order_status: target! } : o)),
+    );
+
+    // 2) Server: persiste. Se falhar, reverte local e loga.
     startTransition(() => {
-      void updateOrderStatus(id, target!).catch(() => undefined);
+      updateOrderStatus(id, target!).catch((err) => {
+        console.error("[Kanban] falha ao mudar status:", err);
+        setLocalOrders((prev) =>
+          prev.map((o) =>
+            o.id === id ? { ...o, order_status: order.order_status } : o,
+          ),
+        );
+        alert(
+          "Não foi possível mudar o status do pedido. Verifique conexão e tente de novo.",
+        );
+      });
     });
   }
 
   function markPaid(id: string) {
+    // Update otimista
+    setLocalOrders((prev) =>
+      prev.map((o) =>
+        o.id === id ? { ...o, payment_status: "pago", amount_paid: o.total_amount } : o,
+      ),
+    );
     startTransition(() => {
-      void updateOrderPayment(id, "pago").catch(() => undefined);
+      updateOrderPayment(id, "pago").catch((err) => {
+        console.error("[Kanban] falha ao marcar pago:", err);
+        alert("Não foi possível marcar como pago. Tente de novo.");
+      });
     });
   }
 
